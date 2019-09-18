@@ -3,11 +3,6 @@ name = "verilog-format"
 version = "0.1.0"
 authors = ["Jiajie Chen <noc@jiegec.ac.cn>"]
 edition = "2018"
-build = "build.rs"
-
-[build-dependencies]
-lalrpop = "0.17.1"
 
 [dependencies]
-lalrpop-util = "0.17.1"
-regex = "0.2.0"
+logos = "0.10.0-rc2"

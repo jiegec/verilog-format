@@ -1,10 +1,5 @@
-#[macro_use]
-extern crate lalrpop_util;
-
+mod lexer;
+mod printer;
 mod test;
-mod ast;
 
-lalrpop_mod!(pub parser);
-
-fn main() {
-}
+fn main() {}
