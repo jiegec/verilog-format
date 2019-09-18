@@ -1,0 +1,116 @@
+use crate::ast::*;
+
+grammar;
+
+// module_declaration
+pub Module: Module = {
+    <h:ModuleHeader> <i:ModuleItem> "endmodule" => Module {
+    }
+};
+
+// module_ansi_header
+ModuleHeader: ModuleHeader = {
+    "module" <i:Identifier> <p:ListOfPortDeclaration> ";" => ModuleHeader {
+
+    }
+}
+
+// list_of_port_declarations
+ListOfPortDeclaration: Ports = {
+    "(" ")" => Ports {},
+    "(" <m: ListOfPortDeclarationInner> ")" => Ports {}
+}
+ListOfPortDeclarationInner: Ports = {
+    AnsiPortDeclaration => Ports {},
+    <a:AnsiPortDeclaration> "," <l: ListOfPortDeclarationInner> => Ports {}
+}
+
+// ansi_port_declaration
+AnsiPortDeclaration: Port = {
+    <d:PortDirection> <t:NetPortType> <n:Identifier> => Port {}
+}
+
+// port_direction
+PortDirection: PortDirection = {
+    "input" => PortDirection::Input,
+    "output" => PortDirection::Output,
+}
+
+// net_port_type
+NetPortType: String = {
+    r"(wire|reg|logic)\[[0-9:]+\]" => String::from(<>),
+}
+
+// identifier
+Identifier: Identifier = {
+    r"[a-zA-Z][a-zA-Z0-9_$]+" => Identifier(String::from(<>))
+}
+
+// module_item
+ModuleItem: ModuleItem = {
+   <NonPortModuleItem>  => ModuleItem {}
+}
+
+// non_port_module_item
+NonPortModuleItem: NonPortModuleItem = {
+   <ModuleOrGenerateItem> => NonPortModuleItem {}
+}
+
+// module_or_generate_item
+ModuleOrGenerateItem: ModuleOrGenerateItem = {
+   <ModuleCommonItem>  => ModuleOrGenerateItem {}
+}
+
+// module_common_item
+ModuleCommonItem: ModuleCommonItem = {
+   <AlwaysConstruct> => ModuleCommonItem {}
+}
+
+// always_construct
+AlwaysConstruct: AlwaysConstruct = {
+   <keyword:AlwaysKeyword> <statement:Statement> => AlwaysConstruct {
+       keyword,
+       statement
+   }
+}
+
+// always_keyword
+AlwaysKeyword: AlwaysKeyword = {
+    "always_comb" => AlwaysKeyword::AlwaysComb
+}
+
+// statement
+Statement: Statement = {
+    <StatementItem> => Statement {}
+}
+
+// statement_item
+StatementItem: StatementItem = {
+    <SeqBlock> => StatementItem {},
+    <ConditionalStatement> => StatementItem {}
+}
+
+// seq_block
+SeqBlock: SeqBlock = {
+    "begin" <Statement> "end" => SeqBlock {}
+}
+
+// conditional_statement
+ConditionalStatement: ConditionalStatement = {
+    "if" "(" <c:CondPredicate> ")" <s:Statement> <v:("else" "if" "(" <CondPredicate> ")" <Statement>)*> <e:("else" <Statement>)?> "end" => ConditionalStatement {}
+}
+
+// cond_predicate
+CondPredicate: CondPredicate = {
+    <Expression> => CondPredicate {}
+}
+
+// expression
+Expression: Expression = {
+    <Expression> <BinaryOperator> <Expression> => Expression {}
+}
+
+// binary_operator
+BinaryOperator: BinaryOperator = {
+    "==" => BinaryOperator {}
+}
