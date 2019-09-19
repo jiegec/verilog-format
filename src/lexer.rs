@@ -10,6 +10,7 @@ pub enum Token {
     Number,
     Identifier,
     String,
+    CompilerDirective,
     Directive,
     Comment,
     Newline,
@@ -33,6 +34,7 @@ pub enum Token {
     Else,
     Always,
     AlwaysComb,
+    AlwaysFf,
 
     // Delimiter
     Sharp,
@@ -70,11 +72,32 @@ pub enum Token {
 
 pub type ParsedToken<'a> = (&'a str, Token);
 
-fn comment(input: &str) -> IResult<&str, ParsedToken> {
-    let re = Regex::new(r"^//.+\n").unwrap();
+fn compiler_directives(input: &str) -> IResult<&str, ParsedToken> {
+    // 19. Compiler directives
+    let re = Regex::new(r"^`(celldefine|default_nettype|define|else|elsif|endcelldefine|endif|ifdef|ifndef|include|line|nounconnected_drive|resetall|timescale|unconnected_drive|undef).*").unwrap();
     if let Some(matches) = re.find(input) {
         let res = input.split_at(matches.end());
-        Ok((res.1, (res.0, Token::Number)))
+        Ok((res.1, (res.0, Token::CompilerDirective)))
+    } else {
+        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
+    }
+}
+
+fn directives(input: &str) -> IResult<&str, ParsedToken> {
+    let re = Regex::new(r"^`[a-zA-Z0-9_]+").unwrap();
+    if let Some(matches) = re.find(input) {
+        let res = input.split_at(matches.end());
+        Ok((res.1, (res.0, Token::Directive)))
+    } else {
+        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
+    }
+}
+
+fn comment(input: &str) -> IResult<&str, ParsedToken> {
+    let re = Regex::new(r"^//.*").unwrap();
+    if let Some(matches) = re.find(input) {
+        let res = input.split_at(matches.end());
+        Ok((res.1, (res.0, Token::Comment)))
     } else {
         Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
     }
@@ -100,6 +123,16 @@ fn identifier(input: &str) -> IResult<&str, ParsedToken> {
     }
 }
 
+fn string(input: &str) -> IResult<&str, ParsedToken> {
+    let re = Regex::new("^\"[^\"]*\"").unwrap();
+    if let Some(matches) = re.find(input) {
+        let res = input.split_at(matches.end());
+        Ok((res.1, (res.0, Token::Identifier)))
+    } else {
+        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
+    }
+}
+
 fn newline(input: &str) -> IResult<&str, ParsedToken> {
     map(line_ending, |p| (p, Token::Newline))(input)
 }
@@ -115,6 +148,7 @@ fn keyword(input: &str) -> IResult<&str, ParsedToken> {
         map(tag("input"), |p| (p, Token::Input)),
         map(tag("output"), |p| (p, Token::Output)),
         map(tag("always_comb"), |p| (p, Token::AlwaysComb)),
+        map(tag("always_ff"), |p| (p, Token::AlwaysFf)),
         map(tag("always"), |p| (p, Token::Always)),
         map(tag("if"), |p| (p, Token::If)),
         map(tag("else"), |p| (p, Token::Else)),
@@ -157,7 +191,18 @@ fn operator(input: &str) -> IResult<&str, ParsedToken> {
 
 fn token(input: &str) -> IResult<&str, ParsedToken> {
     let (input, _) = many0(tag(" "))(input)?;
-    alt((comment, keyword, delimiter, operator, newline, identifier, number))(input)
+    alt((
+        keyword,
+        string,
+        delimiter,
+        newline,
+        identifier,
+        number,
+        comment,
+        operator,
+        compiler_directives,
+        directives,
+    ))(input)
 }
 
 pub fn tokens(input: &str) -> IResult<&str, Vec<ParsedToken>> {

@@ -20,17 +20,12 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
                 tab_level += 1;
             }
             Token::LParen => {
-                if !in_port_definition {
-                    tab_level += 1;
-                }
+                tab_level += 1;
             }
             Token::RParen => {
                 if !in_port_definition {
                     tab_level -= 1;
                 }
-            }
-            Token::Module => {
-                tab_level += 1;
             }
             Token::End | Token::EndModule | Token::EndGenerate | Token::RBraces => {
                 tab_level -= 1;
@@ -40,23 +35,34 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
 
         let new_line = match (&last_text_token, token) {
             (_, Token::Newline) => false,
+            (Token::CompilerDirective, _) => true,
             (Token::Begin, _) => true,
             (_, Token::End) => true,
             (Token::End, Token::Else) => false,
             (Token::End, _) => true,
+            (Token::Comma, Token::Comment) => {
+                if let Token::Comma = last_token {
+                    false
+                } else {
+                    // newline in between
+                    true
+                }
+            }
             (Token::Comma, _) => true,
             (Token::Semicolon, _) => true,
+            (Token::Comment, _) => true,
             (Token::LParen, _) => {
                 if in_port_definition {
                     true
                 } else {
                     false
                 }
-            },
+            }
             (Token::Identifier, Token::RParen) => false,
             _ => false,
         };
 
+        println!("{:#?} {:?} {} {}", token, slice, tab_level, new_line);
         if new_line {
             write!(result, "\n")?;
             for _ in 0..tab_level {
@@ -77,6 +83,12 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
                 | (Token::Directive, Token::Number)
                 | (Token::None, _)
                 | (Token::Newline, _)
+                | (Token::CompilerDirective, _)
+                | (Token::Comment, _)
+                | (Token::Dot, _)
+                | (Token::Identifier, Token::LParen)
+                | (Token::RParen, Token::Identifier)
+                | (_, Token::CompilerDirective)
                 | (_, Token::Newline)
                 | (_, Token::Comma) => {}
                 _ => {
