@@ -30,12 +30,12 @@ module port (
     // fifo matrix
     // tx
     // sender set valid = 1 for a transfer
-    // valid & ready = 1, transfer starts one cycle later
+        // valid & ready = 1, transfer starts one cycle later
     // last = 1 for last byte in the transfer
     output logic [`PORT_OS_COUNT-1:0]fifo_matrix_tx_wready,
 
-    // shared=1
-    input gtx_clk90, // 125MHz, 90 deg shift
+// shared=1
+    input gtx_clk90,      // 125MHz, 90 deg shift
     // shared=0
     output gtx_clk_out, // 125MHz
     output gtx_clk90_out, // 125MHz, 90 deg shift
@@ -44,13 +44,14 @@ module port (
     );
  
     // stores ethernet frame data
-    xpm_fifo_async #(
+    xpm_fifo_async # (
         .READ_DATA_WIDTH(`BYTE_WIDTH),
         .WRITE_DATA_WIDTH(`BYTE_WIDTH),
         .FIFO_WRITE_DEPTH(`MAX_FIFO_SIZE),
-        .PROG_FULL_THRESH(`MAX_FIFO_SIZE - `MAX_ETHERNET_FRAME_BYTES),
-        .READ_MODE("fwft"), // special
-        .FIFO_READ_LATENCY(0) // special
+.PROG_FULL_THRESH(`MAX_FIFO_SIZE -
+ `MAX_ETHERNET_FRAME_BYTES),
+            .READ_MODE("fwft"), // special
+        .FIFO_READ_LATENCY(0 ) // special
     ) xpm_fifo_zsync_inst_tx_data (
         .dout(tx_data_out),
         .rd_en(tx_data_ren),
@@ -60,7 +61,7 @@ module port (
         .din(tx_data_in),
         .rst(reset),
         .wr_clk(clk),
-        .wr_en(tx_data_wen),
+        .wr_en(   tx_data_wen   )   ,
         .wr_rst_busy(tx_data_busy)
     );
 endmodule
