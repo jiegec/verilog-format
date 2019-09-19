@@ -1,4 +1,4 @@
-module Encoder(
+module Encoder (
     input wire [3:0] number,
     output reg [6:0] digital);
 

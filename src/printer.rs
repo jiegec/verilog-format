@@ -86,8 +86,6 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
                 | (Token::CompilerDirective, _)
                 | (Token::Comment, _)
                 | (Token::Dot, _)
-                | (Token::Identifier, Token::LParen)
-                | (Token::RParen, Token::Identifier)
                 | (_, Token::CompilerDirective)
                 | (_, Token::Newline)
                 | (_, Token::Comma) => {}
