@@ -11,6 +11,9 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
         if let Token::Module = token {
             in_port_definition = true;
         } else if let Token::Semicolon = token {
+            if in_port_definition {
+                tab_level += 1;
+            }
             in_port_definition = false;
         }
 
@@ -23,9 +26,7 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
                 tab_level += 1;
             }
             Token::RParen => {
-                if !in_port_definition {
-                    tab_level -= 1;
-                }
+                tab_level -= 1;
             }
             Token::End | Token::EndModule | Token::EndGenerate | Token::RBraces => {
                 tab_level -= 1;

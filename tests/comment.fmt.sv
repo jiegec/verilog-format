@@ -39,9 +39,9 @@ module port (
     // shared=0
     output gtx_clk_out, // 125MHz
     output gtx_clk90_out, // 125MHz, 90 deg shift
-    input refclk, // 200MHz
+    input refclk // 200MHz
 
-    );
+);
 
     // stores ethernet frame data
     xpm_fifo_async # (.READ_DATA_WIDTH (`BYTE_WIDTH),
