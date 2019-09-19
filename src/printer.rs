@@ -1,49 +1,71 @@
-use super::lexer::Token;
-use std::collections::BTreeSet;
+use super::lexer::{ParsedToken, Token};
 use std::fmt::{Error, Write};
 
-pub fn printer(text: &str, mut lexer: logos::Lexer<Token, &str>) -> Result<String, Error> {
+pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
     let mut result = String::new();
     let mut tab_level = 0;
-    let mut upd_tab_level = 0;
-    let mut new_line = true;
-    let mut last_post_space = false;
-    let mut last_token = Token::Error;
-    loop {
-        let token = &lexer.token;
-        if let Token::TokenEnd = token {
-            break;
-        } else if let Token::Error = token {
-            eprintln!("Unknown token {:#?}", lexer.slice());
-            break;
+    let mut last_token = Token::None;
+    let mut last_text_token = Token::None;
+    let mut in_port_definition = false;
+    for (slice, ref token) in tokens {
+        if let Token::Module = token {
+            in_port_definition = true;
+        } else if let Token::Semicolon = token {
+            in_port_definition = false;
         }
 
         // Tab level calculation
         match token {
-            Token::Begin | Token::LParen | Token::LBraces => {
+            Token::Begin | Token::LBraces => {
                 tab_level += 1;
             }
-            Token::Module => {
-                upd_tab_level += 1;
+            Token::LParen => {
+                if !in_port_definition {
+                    tab_level += 1;
+                }
             }
-            Token::End | Token::EndModule | Token::EndGenerate | Token::RParen | Token::RBraces => {
+            Token::RParen => {
+                if !in_port_definition {
+                    tab_level -= 1;
+                }
+            }
+            Token::Module => {
+                tab_level += 1;
+            }
+            Token::End | Token::EndModule | Token::EndGenerate | Token::RBraces => {
                 tab_level -= 1;
             }
             _ => {}
         }
+
+        let new_line = match (&last_text_token, token) {
+            (_, Token::Newline) => false,
+            (Token::Begin, _) => true,
+            (_, Token::End) => true,
+            (Token::End, Token::Else) => false,
+            (Token::End, _) => true,
+            (Token::Comma, _) => true,
+            (Token::Semicolon, _) => true,
+            (Token::LParen, _) => {
+                if in_port_definition {
+                    true
+                } else {
+                    false
+                }
+            },
+            (Token::Identifier, Token::RParen) => false,
+            _ => false,
+        };
+
         if new_line {
+            write!(result, "\n")?;
             for _ in 0..tab_level {
                 write!(result, "    ")?;
             }
         }
 
-        if upd_tab_level != 0 {
-            tab_level += upd_tab_level;
-            upd_tab_level = 0;
-        }
-
         if !new_line {
-            match (last_token, token) {
+            match (&last_text_token, token) {
                 (Token::LParen, _)
                 | (_, Token::RParen)
                 | (Token::LBracket, _)
@@ -53,6 +75,9 @@ pub fn printer(text: &str, mut lexer: logos::Lexer<Token, &str>) -> Result<Strin
                 | (Token::OpNot, _)
                 | (_, Token::Semicolon)
                 | (Token::Directive, Token::Number)
+                | (Token::None, _)
+                | (Token::Newline, _)
+                | (_, Token::Newline)
                 | (_, Token::Comma) => {}
                 _ => {
                     write!(result, " ")?;
@@ -60,23 +85,16 @@ pub fn printer(text: &str, mut lexer: logos::Lexer<Token, &str>) -> Result<Strin
             }
         }
 
-        write!(result, "{}", lexer.slice())?;
-
-        if let Token::Comment = token {
-            new_line = true;
-        } else {
-            new_line = false;
-        }
-
-        match token {
-            Token::Semicolon | Token::Begin | Token::End | Token::Comma | Token::EndGenerate => {
-                new_line = true;
-                write!(result, "\n")?;
+        if let Token::Newline = token {
+            if let Token::Newline = last_token {
+                write!(result, "{}", slice)?;
             }
-            _ => {}
+        } else {
+            write!(result, "{}", slice)?;
+            last_text_token = token.clone();
         }
+
         last_token = token.clone();
-        lexer.advance();
     }
 
     return Ok(result);

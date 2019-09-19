@@ -5,4 +5,8 @@ authors = ["Jiajie Chen <noc@jiegec.ac.cn>"]
 edition = "2018"
 
 [dependencies]
-logos = "0.10.0-rc2"
+nom = "5.0.1"
+regex = "1"
+
+[dev-dependencies]
+pretty_assertions = "0.6.1"

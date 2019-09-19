@@ -1,159 +1,165 @@
-use logos::Logos;
-#[derive(Logos, Debug, PartialEq, Clone)]
+use nom::{
+    branch::alt, bytes::complete::tag, character::complete::line_ending, combinator::map,
+    error::ErrorKind, multi::many0, multi::many1, IResult,
+};
+use regex::Regex;
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
-    // Special
-    #[end]
-    TokenEnd,
-
-    #[error]
-    Error,
-
     // Types
-    #[regex = "(([1-9][0-9_]*)?'[dDbBoOhH])?[0-9a-fA-F_]+(ns|ps)?"]
     Number,
-
-    #[regex = "[a-zA-Z_][a-zA-z0-9$_]*"]
     Identifier,
-
-    #[regex = "\"[^\"]*\""]
     String,
-
-    #[regex = "`[a-zA-Z0-9_]+"]
     Directive,
-
-    #[regex = "//.*\n"]
     Comment,
+    Newline,
 
     // Keywords
-    #[token = "module"]
     Module,
-
-    #[token = "endmodule"]
     EndModule,
-
-    #[token = "begin"]
     Begin,
-
-    #[token = "end"]
     End,
-
-    #[token = "parameter"]
     Parameter,
-
-    #[token = "generate"]
     Generate,
-
-    #[token = "endgenerate"]
     EndGenerate,
-
-    #[token = "input"]
     Input,
-
-    #[token = "output"]
     Output,
-
-    #[token = "assign"]
     Assign,
-
-    #[token = "posedge"]
     Posedge,
-
-    #[token = "wire"]
     Wire,
-
-    #[token = "reg"]
     Reg,
-
-    #[token = "logic"]
     Logic,
-
-    #[token = "if"]
     If,
-
-    #[token = "else"]
     Else,
+    Always,
+    AlwaysComb,
 
     // Delimiter
-    #[token = "#"]
     Sharp,
-
-    #[token = "("]
-    LParen,
-
-    #[token = ")"]
+    LParen, // ()
     RParen,
-
-    #[token = "["]
-    LBracket,
-
-    #[token = "]"]
+    LBracket, // []
     RBracket,
-
-    #[token = "{"]
-    LBraces,
-
-    #[token = "}"]
+    LBraces, // {}
     RBraces,
-
-    #[token = ":"]
     Colon,
-
-    #[token = ","]
     Comma,
-
-    #[token = ";"]
     Semicolon,
-
-    #[token = "."]
     Dot,
 
-    #[token = "="]
-    Equal,
-
-    #[token = "@"]
-    At,
-
     // Operators
-    #[token = "/"]
-    OpDivide,
-
-    #[token = "-"]
-    OpMinus,
-
-    #[token = "!"]
-    OpNot,
-
-    #[token = "+"]
-    OpPlus,
-
-    #[token = "~"]
-    OpInvert,
-
-    #[token = "*"]
-    OpMultiply,
-
-    #[token = "?"]
-    OpChoice,
-
-    #[token = "=="]
     OpEqual,
-
-    #[token = "<="]
+    OpAt,
+    OpDivide,
+    OpMinus,
+    OpNot,
+    OpPlus,
+    OpInvert,
+    OpMultiply,
+    OpChoice,
+    OpEqualTo,
     OpAssign,
-
-    #[token = "<"]
     OpLessThan,
-
-    #[token = ">"]
     OpGreaterThan,
-
-    #[token = "<<"]
     OpLeftShift,
-
-    #[token = ">="]
     OpGreaterEqual,
-
-    #[token = "&&"]
     OpAnd,
 
+    None,
+}
+
+pub type ParsedToken<'a> = (&'a str, Token);
+
+fn comment(input: &str) -> IResult<&str, ParsedToken> {
+    let re = Regex::new(r"^//.+\n").unwrap();
+    if let Some(matches) = re.find(input) {
+        let res = input.split_at(matches.end());
+        Ok((res.1, (res.0, Token::Number)))
+    } else {
+        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
+    }
+}
+
+fn number(input: &str) -> IResult<&str, ParsedToken> {
+    let re = Regex::new(r"^(([1-9][0-9_]*)?'[dDbBoOhH])?[0-9a-fA-F]+").unwrap();
+    if let Some(matches) = re.find(input) {
+        let res = input.split_at(matches.end());
+        Ok((res.1, (res.0, Token::Number)))
+    } else {
+        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
+    }
+}
+
+fn identifier(input: &str) -> IResult<&str, ParsedToken> {
+    let re = Regex::new(r"^[a-zA-Z_][a-zA-Z0-9$_]*").unwrap();
+    if let Some(matches) = re.find(input) {
+        let res = input.split_at(matches.end());
+        Ok((res.1, (res.0, Token::Identifier)))
+    } else {
+        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
+    }
+}
+
+fn newline(input: &str) -> IResult<&str, ParsedToken> {
+    map(line_ending, |p| (p, Token::Newline))(input)
+}
+
+fn keyword(input: &str) -> IResult<&str, ParsedToken> {
+    alt((
+        map(tag("module"), |p| (p, Token::Module)),
+        map(tag("endmodule"), |p| (p, Token::EndModule)),
+        map(tag("begin"), |p| (p, Token::Begin)),
+        map(tag("end"), |p| (p, Token::End)),
+        map(tag("wire"), |p| (p, Token::Wire)),
+        map(tag("reg"), |p| (p, Token::Reg)),
+        map(tag("input"), |p| (p, Token::Input)),
+        map(tag("output"), |p| (p, Token::Output)),
+        map(tag("always_comb"), |p| (p, Token::AlwaysComb)),
+        map(tag("always"), |p| (p, Token::Always)),
+        map(tag("if"), |p| (p, Token::If)),
+        map(tag("else"), |p| (p, Token::Else)),
+    ))(input)
+}
+
+fn delimiter(input: &str) -> IResult<&str, ParsedToken> {
+    alt((
+        map(tag("#"), |p| (p, Token::Sharp)),
+        map(tag("("), |p| (p, Token::LParen)),
+        map(tag(")"), |p| (p, Token::RParen)),
+        map(tag("["), |p| (p, Token::LBracket)),
+        map(tag("]"), |p| (p, Token::RBracket)),
+        map(tag(":"), |p| (p, Token::Colon)),
+        map(tag(","), |p| (p, Token::Comma)),
+        map(tag(";"), |p| (p, Token::Semicolon)),
+        map(tag("."), |p| (p, Token::Dot)),
+    ))(input)
+}
+
+fn operator(input: &str) -> IResult<&str, ParsedToken> {
+    alt((
+        map(tag("=="), |p| (p, Token::OpEqualTo)),
+        map(tag("="), |p| (p, Token::OpEqual)),
+        map(tag("@"), |p| (p, Token::OpAt)),
+        map(tag("/"), |p| (p, Token::OpDivide)),
+        map(tag("-"), |p| (p, Token::OpMinus)),
+        map(tag("!"), |p| (p, Token::OpNot)),
+        map(tag("+"), |p| (p, Token::OpPlus)),
+        map(tag("~"), |p| (p, Token::OpInvert)),
+        map(tag("*"), |p| (p, Token::OpMultiply)),
+        map(tag("?"), |p| (p, Token::OpChoice)),
+        map(tag("<="), |p| (p, Token::OpAssign)),
+        map(tag("<"), |p| (p, Token::OpLessThan)),
+        map(tag(">="), |p| (p, Token::OpGreaterEqual)),
+        map(tag(">"), |p| (p, Token::OpGreaterThan)),
+        map(tag("&&"), |p| (p, Token::OpAnd)),
+    ))(input)
+}
+
+fn token(input: &str) -> IResult<&str, ParsedToken> {
+    let (input, _) = many0(tag(" "))(input)?;
+    alt((comment, keyword, delimiter, operator, newline, identifier, number))(input)
+}
+
+pub fn tokens(input: &str) -> IResult<&str, Vec<ParsedToken>> {
+    many1(token)(input)
 }
