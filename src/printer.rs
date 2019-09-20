@@ -4,31 +4,42 @@ use std::fmt::{Error, Write};
 pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
     let mut result = String::new();
     let mut tab_level = 0;
+    let mut upd_tab_level = 0;
+    let mut paren_level = 0;
     let mut last_token = Token::None;
     let mut last_text_token = Token::None;
-    let mut in_port_definition = false;
+    let mut in_definition = false;
     for (slice, ref token) in tokens {
+        // Maintain definition state
         if let Token::Module = token {
-            in_port_definition = true;
+            in_definition = true;
+        } else if let Token::Task = token {
+            in_definition = true;
         } else if let Token::Semicolon = token {
-            if in_port_definition {
+            if in_definition {
                 tab_level += 1;
             }
-            in_port_definition = false;
+            in_definition = false;
         }
 
-        // Tab level calculation
+        // Tab level & paren level calculation
         match token {
             Token::Begin | Token::LBraces => {
-                tab_level += 1;
+                upd_tab_level += 1;
             }
             Token::LParen => {
                 tab_level += 1;
+                paren_level += 1;
             }
             Token::RParen => {
                 tab_level -= 1;
+                paren_level -= 1;
             }
-            Token::End | Token::EndModule | Token::EndGenerate | Token::RBraces => {
+            Token::End
+            | Token::EndModule
+            | Token::EndTask
+            | Token::EndGenerate
+            | Token::RBraces => {
                 tab_level -= 1;
             }
             _ => {}
@@ -41,6 +52,7 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
             (_, Token::End) => true,
             (Token::End, Token::Else) => false,
             (Token::End, _) => true,
+            (Token::EndTask, _) => true,
             (Token::Comma, Token::Comment) => {
                 if let Token::Comma = last_token {
                     false
@@ -49,11 +61,12 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
                     true
                 }
             }
-            (Token::Comma, _) => true,
+            (Token::Comma, _) => paren_level > 0,
             (Token::Semicolon, _) => true,
             (Token::Comment, _) => true,
+            (Token::LParen, Token::RParen) => false,
             (Token::LParen, _) => {
-                if in_port_definition {
+                if in_definition {
                     true
                 } else {
                     false
@@ -70,12 +83,20 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
                 write!(result, "    ")?;
             }
         }
+        if upd_tab_level != 0 {
+            tab_level += upd_tab_level;
+            upd_tab_level = 0;
+        }
 
         if !new_line {
             match (&last_text_token, token) {
                 (Token::LParen, _)
                 | (_, Token::RParen)
+                | (Token::Identifier, Token::LBracket)
+                | (Token::Sharp, Token::Number)
                 | (Token::LBracket, _)
+                | (Token::LBraces, _)
+                | (_, Token::RBraces)
                 | (_, Token::RBracket)
                 | (Token::Number, Token::Colon)
                 | (Token::Colon, Token::Number)
@@ -87,6 +108,7 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
                 | (Token::CompilerDirective, _)
                 | (Token::Comment, _)
                 | (Token::Dot, _)
+                | (_, Token::Dot)
                 | (_, Token::CompilerDirective)
                 | (_, Token::Newline)
                 | (_, Token::Comma) => {}

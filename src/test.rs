@@ -10,6 +10,7 @@ fn test_files() {
     for (orig, fmt) in &[
         ("./tests/Encoder.sv", "./tests/Encoder.fmt.sv"),
         ("./tests/comment.sv", "./tests/comment.fmt.sv"),
+        ("./tests/test_cpu.sv", "./tests/test_cpu.fmt.sv"),
     ] {
         let text = read_to_string(orig).unwrap();
         let result = lexer::tokens(&text).unwrap();
