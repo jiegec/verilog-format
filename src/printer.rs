@@ -76,7 +76,7 @@ pub fn printer(tokens: Vec<ParsedToken>) -> Result<String, Error> {
             _ => false,
         };
 
-        println!("{:#?} {:?} {} {}", token, slice, tab_level, new_line);
+        //println!("{:#?} {:?} {} {}", token, slice, tab_level, new_line);
         if new_line {
             write!(result, "\n")?;
             for _ in 0..tab_level {
