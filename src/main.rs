@@ -20,6 +20,7 @@ fn main() {
                 .long("file")
                 .value_name("file")
                 .help("Input file")
+                .required(true)
                 .takes_value(true),
         )
         .get_matches();
