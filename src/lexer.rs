@@ -91,7 +91,8 @@ macro_rules! parse_one {
         fn foo(input: &str) -> IResult<&str, ParsedToken> {
             let (rest, o1) = tag($word)(input)?;
             match rest.chars().next() {
-                Some('_') => Err(nom::Err::Error((input, ErrorKind::Alt))),
+                Some(c) if c == '_' || c.is_alphanumeric() => 
+                    Err(nom::Err::Error((input, ErrorKind::Alt))),
                 _ => Ok((rest, (o1, Token::$token))),
             }
         }
