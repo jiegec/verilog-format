@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate lazy_static;
 
 use clap::{App, AppSettings, Arg};
 use std::fs::read_to_string;

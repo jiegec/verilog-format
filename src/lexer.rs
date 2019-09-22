@@ -90,9 +90,11 @@ macro_rules! parse_one {
     ( word: $word:literal => $token:ident ) => {{
         fn foo(input: &str) -> IResult<&str, ParsedToken> {
             let (rest, o1) = tag($word)(input)?;
+            // handle identifiers like 'reg_abc'
             match rest.chars().next() {
-                Some(c) if c == '_' || c.is_alphanumeric() => 
-                    Err(nom::Err::Error((input, ErrorKind::Alt))),
+                Some(c) if c == '_' || c.is_alphanumeric() => {
+                    Err(nom::Err::Error((input, ErrorKind::Tag)))
+                }
                 _ => Ok((rest, (o1, Token::$token))),
             }
         }
@@ -100,8 +102,10 @@ macro_rules! parse_one {
     }};
     ( regex: $regex:literal => $token:ident ) => {{
         fn foo(input: &str) -> IResult<&str, ParsedToken> {
-            let re = Regex::new($regex).unwrap();
-            if let Some(matches) = re.find(input) {
+            lazy_static! {
+                static ref RE: Regex = Regex::new($regex).unwrap();
+            }
+            if let Some(matches) = RE.find(input) {
                 let (matched, rest) = input.split_at(matches.end());
                 Ok((rest, (matched, Token::$token)))
             } else {
