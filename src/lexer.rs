@@ -190,7 +190,7 @@ fn token(input: &str) -> IResult<&str, ParsedToken> {
     let comment = parse_token!(regex: r"^//.*" => Comment);
     let number = parse_token!(regex: r"^(([1-9][0-9_]*)?'[dDbBoOhH])?[0-9a-fA-F]+" => Number);
     let identifier = parse_token!(regex: r"^[a-zA-Z$_][a-zA-Z0-9$_]*" => Identifier);
-    let string = parse_token!(regex: "^\"[^\"]*\"" => Identifier);
+    let string = parse_token!(regex: "^\"[^\"]*\"" => String);
     let newline = parse_token!(fn: line_ending => Newline);
 
     alt((
