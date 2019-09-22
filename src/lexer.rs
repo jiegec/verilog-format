@@ -1,6 +1,11 @@
 use nom::{
-    branch::alt, bytes::complete::tag, character::complete::line_ending, combinator::map,
-    error::ErrorKind, multi::many0, multi::many1, IResult,
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::{line_ending, space1},
+    combinator::map,
+    error::ErrorKind,
+    multi::{many0, many1},
+    IResult,
 };
 use regex::Regex;
 
@@ -75,140 +80,119 @@ pub enum Token {
 
 pub type ParsedToken<'a> = (&'a str, Token);
 
-fn compiler_directives(input: &str) -> IResult<&str, ParsedToken> {
-    // 19. Compiler directives
-    let re = Regex::new(r"^`(celldefine|default_nettype|define|else|elsif|endcelldefine|endif|ifdef|ifndef|include|line|nounconnected_drive|resetall|timescale|unconnected_drive|undef).*").unwrap();
-    if let Some(matches) = re.find(input) {
-        let res = input.split_at(matches.end());
-        Ok((res.1, (res.0, Token::CompilerDirective)))
-    } else {
-        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
-    }
+macro_rules! parse_one {
+    ( fn: $fn:ident => $token:ident ) => {{
+        map($fn, |p| (p, Token::$token))
+    }};
+    ( op: $op:literal => $token:ident ) => {{
+        map(tag($op), |p| (p, Token::$token))
+    }};
+    ( word: $word:literal => $token:ident ) => {{
+        fn foo(input: &str) -> IResult<&str, ParsedToken> {
+            let (rest, o1) = tag($word)(input)?;
+            match rest.chars().next() {
+                Some(c) if c == '_' || c.is_alphanumeric() => 
+                    Err(nom::Err::Error((input, ErrorKind::Alt))),
+                _ => Ok((rest, (o1, Token::$token))),
+            }
+        }
+        foo
+    }};
+    ( regex: $regex:literal => $token:ident ) => {{
+        fn foo(input: &str) -> IResult<&str, ParsedToken> {
+            let re = Regex::new($regex).unwrap();
+            if let Some(matches) = re.find(input) {
+                let (matched, rest) = input.split_at(matches.end());
+                Ok((rest, (matched, Token::$token)))
+            } else {
+                Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
+            }
+        }
+        foo
+    }};
 }
 
-fn directives(input: &str) -> IResult<&str, ParsedToken> {
-    let re = Regex::new(r"^`[a-zA-Z0-9_]+").unwrap();
-    if let Some(matches) = re.find(input) {
-        let res = input.split_at(matches.end());
-        Ok((res.1, (res.0, Token::Directive)))
-    } else {
-        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
-    }
-}
-
-fn comment(input: &str) -> IResult<&str, ParsedToken> {
-    let re = Regex::new(r"^//.*").unwrap();
-    if let Some(matches) = re.find(input) {
-        let res = input.split_at(matches.end());
-        Ok((res.1, (res.0, Token::Comment)))
-    } else {
-        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
-    }
-}
-
-fn number(input: &str) -> IResult<&str, ParsedToken> {
-    let re = Regex::new(r"^(([1-9][0-9_]*)?'[dDbBoOhH])?[0-9a-fA-F]+").unwrap();
-    if let Some(matches) = re.find(input) {
-        let res = input.split_at(matches.end());
-        Ok((res.1, (res.0, Token::Number)))
-    } else {
-        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
-    }
-}
-
-fn identifier(input: &str) -> IResult<&str, ParsedToken> {
-    let re = Regex::new(r"^[a-zA-Z$_][a-zA-Z0-9$_]*").unwrap();
-    if let Some(matches) = re.find(input) {
-        let res = input.split_at(matches.end());
-        Ok((res.1, (res.0, Token::Identifier)))
-    } else {
-        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
-    }
-}
-
-fn string(input: &str) -> IResult<&str, ParsedToken> {
-    let re = Regex::new("^\"[^\"]*\"").unwrap();
-    if let Some(matches) = re.find(input) {
-        let res = input.split_at(matches.end());
-        Ok((res.1, (res.0, Token::Identifier)))
-    } else {
-        Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
-    }
-}
-
-fn newline(input: &str) -> IResult<&str, ParsedToken> {
-    map(line_ending, |p| (p, Token::Newline))(input)
+macro_rules! parse_token {
+    ( $type:ident : $arg:tt => $token:ident ) => {
+        parse_one!($type: $arg => $token)
+    };
+    ( $( $type:ident : $arg:tt => $token:ident ),* $(,)? ) => {
+        ( $( parse_one!($type: $arg => $token) ),* )
+    };
 }
 
 fn keyword(input: &str) -> IResult<&str, ParsedToken> {
-    let (input, res) = alt((
-        map(tag("module"), |p| (p, Token::Module)),
-        map(tag("endmodule"), |p| (p, Token::EndModule)),
-        map(tag("generate"), |p| (p, Token::Generate)),
-        map(tag("endgenerate"), |p| (p, Token::EndGenerate)),
-        map(tag("task"), |p| (p, Token::Task)),
-        map(tag("endtask"), |p| (p, Token::EndTask)),
-        map(tag("begin"), |p| (p, Token::Begin)),
-        map(tag("end"), |p| (p, Token::End)),
-        map(tag("initial"), |p| (p, Token::Initial)),
-        map(tag("wire"), |p| (p, Token::Wire)),
-        map(tag("reg"), |p| (p, Token::Reg)),
-        map(tag("logic"), |p| (p, Token::Logic)),
-        map(tag("input"), |p| (p, Token::Input)),
-        map(tag("output"), |p| (p, Token::Output)),
-        map(tag("always_comb"), |p| (p, Token::AlwaysComb)),
-        map(tag("always_ff"), |p| (p, Token::AlwaysFf)),
-        map(tag("always"), |p| (p, Token::Always)),
-        map(tag("if"), |p| (p, Token::If)),
-        map(tag("else"), |p| (p, Token::Else)),
-    ))(input)?;
-
-    // handle variables named 'reg_abc'
-    if let Some('_') = input.chars().next() {
-        Err(nom::Err::Error((input, ErrorKind::Alt)))
-    } else {
-        Ok((input, res))
-    }
+    alt(parse_token!(
+        word: "module" => Module,
+        word: "endmodule" => EndModule,
+        word: "generate" => Generate,
+        word: "endgenerate" => EndGenerate,
+        word: "task" => Task,
+        word: "endtask" => EndTask,
+        word: "begin" => Begin,
+        word: "end" => End,
+        word: "initial" => Initial,
+        word: "wire" => Wire,
+        word: "reg" => Reg,
+        word: "logic" => Logic,
+        word: "input" => Input,
+        word: "output" => Output,
+        word: "always_comb" => AlwaysComb,
+        word: "always_ff" => AlwaysFf,
+        word: "always" => Always,
+        word: "if" => If,
+        word: "else" => Else,
+    ))(input)
 }
 
 fn delimiter(input: &str) -> IResult<&str, ParsedToken> {
-    alt((
-        map(tag("#"), |p| (p, Token::Sharp)),
-        map(tag("("), |p| (p, Token::LParen)),
-        map(tag(")"), |p| (p, Token::RParen)),
-        map(tag("["), |p| (p, Token::LBracket)),
-        map(tag("]"), |p| (p, Token::RBracket)),
-        map(tag("{"), |p| (p, Token::LBraces)),
-        map(tag("}"), |p| (p, Token::RBraces)),
-        map(tag(":"), |p| (p, Token::Colon)),
-        map(tag(","), |p| (p, Token::Comma)),
-        map(tag(";"), |p| (p, Token::Semicolon)),
-        map(tag("."), |p| (p, Token::Dot)),
+    alt(parse_token!(
+        op: "#" => Sharp,
+        op: "(" => LParen,
+        op: ")" => RParen,
+        op: "[" => LBracket,
+        op: "]" => RBracket,
+        op: "{" => LBraces,
+        op: "}" => RBraces,
+        op: ":" => Colon,
+        op: "," => Comma,
+        op: ";" => Semicolon,
+        op: "." => Dot,
     ))(input)
 }
 
 fn operator(input: &str) -> IResult<&str, ParsedToken> {
-    alt((
-        map(tag("=="), |p| (p, Token::OpEqualTo)),
-        map(tag("="), |p| (p, Token::OpEqual)),
-        map(tag("@"), |p| (p, Token::OpAt)),
-        map(tag("/"), |p| (p, Token::OpDivide)),
-        map(tag("-"), |p| (p, Token::OpMinus)),
-        map(tag("!"), |p| (p, Token::OpNot)),
-        map(tag("+"), |p| (p, Token::OpPlus)),
-        map(tag("~"), |p| (p, Token::OpInvert)),
-        map(tag("*"), |p| (p, Token::OpMultiply)),
-        map(tag("?"), |p| (p, Token::OpChoice)),
-        map(tag("<="), |p| (p, Token::OpAssign)),
-        map(tag("<"), |p| (p, Token::OpLessThan)),
-        map(tag(">="), |p| (p, Token::OpGreaterEqual)),
-        map(tag(">"), |p| (p, Token::OpGreaterThan)),
-        map(tag("&&"), |p| (p, Token::OpAnd)),
+    alt(parse_token!(
+        op: "==" => OpEqualTo,
+        op: "=" => OpEqual,
+        op: "@" => OpAt,
+        op: "/" => OpDivide,
+        op: "-" => OpMinus,
+        op: "!" => OpNot,
+        op: "+" => OpPlus,
+        op: "~" => OpInvert,
+        op: "*" => OpMultiply,
+        op: "?" => OpChoice,
+        op: "<=" => OpAssign,
+        op: "<" => OpLessThan,
+        op: ">=" => OpGreaterEqual,
+        op: ">" => OpGreaterThan,
+        op: "&&" => OpAnd,
     ))(input)
 }
 
 fn token(input: &str) -> IResult<&str, ParsedToken> {
-    let (input, _) = many0(alt((tag(" "), tag("\t"))))(input)?;
+    let (input, _) = many0(space1)(input)?;
+
+    let compiler_directives = parse_token!(regex: r"^`(celldefine|default_nettype|define|else|elsif|endcelldefine|endif|ifdef|ifndef|include|line|nounconnected_drive|resetall|timescale|unconnected_drive|undef).*"
+        => CompilerDirective);
+    let directives = parse_token!(regex: r"^`[a-zA-Z0-9_]+" => Directive);
+    let comment = parse_token!(regex: r"^//.*" => Comment);
+    let number = parse_token!(regex: r"^(([1-9][0-9_]*)?'[dDbBoOhH])?[0-9a-fA-F]+" => Number);
+    let identifier = parse_token!(regex: r"^[a-zA-Z$_][a-zA-Z0-9$_]*" => Identifier);
+    let string = parse_token!(regex: "^\"[^\"]*\"" => Identifier);
+    let newline = parse_token!(fn: line_ending => Newline);
+
     alt((
         keyword,
         string,
