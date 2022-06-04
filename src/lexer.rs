@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -92,9 +93,9 @@ macro_rules! parse_one {
             let (rest, o1) = tag($word)(input)?;
             // handle identifiers like 'reg_abc'
             match rest.chars().next() {
-                Some(c) if c == '_' || c.is_alphanumeric() => {
-                    Err(nom::Err::Error((input, ErrorKind::Tag)))
-                }
+                Some(c) if c == '_' || c.is_alphanumeric() => Err(nom::Err::Error(
+                    nom::error::Error::new(input, ErrorKind::Tag),
+                )),
                 _ => Ok((rest, (o1, Token::$token))),
             }
         }
@@ -109,7 +110,10 @@ macro_rules! parse_one {
                 let (matched, rest) = input.split_at(matches.end());
                 Ok((rest, (matched, Token::$token)))
             } else {
-                Err(nom::Err::Error((input, ErrorKind::RegexpMatches)))
+                Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    ErrorKind::RegexpMatches,
+                )))
             }
         }
         foo

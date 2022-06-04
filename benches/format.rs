@@ -1,14 +1,13 @@
-#[macro_use]
-extern crate criterion;
-
 extern crate verilog_format;
 
-use criterion::Criterion;
 use criterion::black_box;
+use criterion::Criterion;
 
+use criterion::criterion_group;
+use criterion::criterion_main;
+use std::fs::read_to_string;
 use verilog_format::lexer;
 use verilog_format::printer;
-use std::fs::read_to_string;
 
 fn test(testcase: &str) {
     let input_path = format!("./tests/{}.sv", testcase);
@@ -21,7 +20,9 @@ fn test(testcase: &str) {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("format test_cpu.sv", |b| b.iter(|| test(black_box("test_cpu"))));
+    c.bench_function("format test_cpu.sv", |b| {
+        b.iter(|| test(black_box("test_cpu")))
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);

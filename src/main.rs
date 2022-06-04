@@ -1,24 +1,19 @@
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate lazy_static;
-
-use clap::{App, AppSettings, Arg};
+use clap::{crate_authors, crate_version, Arg, Command};
 use std::fs::read_to_string;
 
 pub mod lexer;
 pub mod printer;
+#[cfg(test)]
 mod test;
 
 fn main() {
-    let args = App::new("verilog-format")
+    let args = Command::new("verilog-format")
         .about("Verilog formatter")
         .author(crate_authors!())
         .version(crate_version!())
-        .setting(AppSettings::ColoredHelp)
         .arg(
-            Arg::with_name("file")
-                .short("f")
+            Arg::new("file")
+                .short('f')
                 .long("file")
                 .value_name("file")
                 .help("Input file")
