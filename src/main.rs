@@ -18,11 +18,11 @@ fn main() {
                 .value_name("file")
                 .help("Input file")
                 .required(true)
-                .takes_value(true),
+                .num_args(1)
         )
         .get_matches();
 
-    let file = args.value_of("file").unwrap();
+    let file: &String = args.get_one("file").unwrap();
     let text = read_to_string(file).unwrap();
     let result = lexer::tokens(&text).unwrap();
     let printed_text = printer::printer(result.1).unwrap();

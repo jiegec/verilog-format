@@ -2,12 +2,12 @@
 name = "verilog_format"
 version = "0.1.0"
 authors = ["Jiajie Chen <c@jia.je>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 nom = "7.1.1"
 regex = "1.5.6"
-clap = { version = "3.1.18", features = ["cargo"] }
+clap = { version = "4.5.32", features = ["cargo"] }
 lazy_static = "1.4.0"
 
 [dev-dependencies]
