@@ -7,6 +7,7 @@ use nom::{
     error::ErrorKind,
     multi::{many0, many1},
     IResult,
+    Parser
 };
 use regex::Regex;
 
@@ -150,7 +151,7 @@ fn keyword(input: &str) -> IResult<&str, ParsedToken> {
         word: "always" => Always,
         word: "if" => If,
         word: "else" => Else,
-    ))(input)
+    )).parse(input)
 }
 
 fn delimiter(input: &str) -> IResult<&str, ParsedToken> {
@@ -166,7 +167,7 @@ fn delimiter(input: &str) -> IResult<&str, ParsedToken> {
         op: "," => Comma,
         op: ";" => Semicolon,
         op: "." => Dot,
-    ))(input)
+    )).parse(input)
 }
 
 fn operator(input: &str) -> IResult<&str, ParsedToken> {
@@ -186,11 +187,11 @@ fn operator(input: &str) -> IResult<&str, ParsedToken> {
         op: ">=" => OpGreaterEqual,
         op: ">" => OpGreaterThan,
         op: "&&" => OpAnd,
-    ))(input)
+    )).parse(input)
 }
 
 fn token(input: &str) -> IResult<&str, ParsedToken> {
-    let (input, _) = many0(space1)(input)?;
+    let (input, _) = many0(space1).parse(input)?;
 
     let compiler_directives = parse_token!(regex: r"^`(celldefine|default_nettype|define|else|elsif|endcelldefine|endif|ifdef|ifndef|include|line|nounconnected_drive|resetall|timescale|unconnected_drive|undef).*"
         => CompilerDirective);
@@ -212,9 +213,9 @@ fn token(input: &str) -> IResult<&str, ParsedToken> {
         operator,
         compiler_directives,
         directives,
-    ))(input)
+    )).parse(input)
 }
 
 pub fn tokens(input: &str) -> IResult<&str, Vec<ParsedToken>> {
-    many1(token)(input)
+    many1(token).parse(input)
 }
