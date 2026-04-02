@@ -1,13 +1,12 @@
 use lazy_static::lazy_static;
 use nom::{
+    IResult, Parser,
     branch::alt,
     bytes::complete::tag,
     character::complete::{line_ending, space1},
     combinator::map,
     error::ErrorKind,
     multi::{many0, many1},
-    IResult,
-    Parser
 };
 use regex::Regex;
 
@@ -83,14 +82,10 @@ pub enum Token {
 pub type ParsedToken<'a> = (&'a str, Token);
 
 macro_rules! parse_one {
-    ( fn: $fn:ident => $token:ident ) => {{
-        map($fn, |p| (p, Token::$token))
-    }};
-    ( op: $op:literal => $token:ident ) => {{
-        map(tag($op), |p| (p, Token::$token))
-    }};
+    ( fn: $fn:ident => $token:ident ) => {{ map($fn, |p| (p, Token::$token)) }};
+    ( op: $op:literal => $token:ident ) => {{ map(tag($op), |p| (p, Token::$token)) }};
     ( word: $word:literal => $token:ident ) => {{
-        fn foo(input: &str) -> IResult<&str, ParsedToken> {
+        fn foo(input: &str) -> IResult<&str, ParsedToken<'_>> {
             let (rest, o1) = tag($word)(input)?;
             // handle identifiers like 'reg_abc'
             match rest.chars().next() {
@@ -103,7 +98,7 @@ macro_rules! parse_one {
         foo
     }};
     ( regex: $regex:literal => $token:ident ) => {{
-        fn foo(input: &str) -> IResult<&str, ParsedToken> {
+        fn foo(input: &str) -> IResult<&str, ParsedToken<'_>> {
             lazy_static! {
                 static ref RE: Regex = Regex::new($regex).unwrap();
             }
@@ -130,7 +125,7 @@ macro_rules! parse_token {
     };
 }
 
-fn keyword(input: &str) -> IResult<&str, ParsedToken> {
+fn keyword(input: &str) -> IResult<&str, ParsedToken<'_>> {
     alt(parse_token!(
         word: "module" => Module,
         word: "endmodule" => EndModule,
@@ -151,10 +146,11 @@ fn keyword(input: &str) -> IResult<&str, ParsedToken> {
         word: "always" => Always,
         word: "if" => If,
         word: "else" => Else,
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
-fn delimiter(input: &str) -> IResult<&str, ParsedToken> {
+fn delimiter(input: &str) -> IResult<&str, ParsedToken<'_>> {
     alt(parse_token!(
         op: "#" => Sharp,
         op: "(" => LParen,
@@ -167,10 +163,11 @@ fn delimiter(input: &str) -> IResult<&str, ParsedToken> {
         op: "," => Comma,
         op: ";" => Semicolon,
         op: "." => Dot,
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
-fn operator(input: &str) -> IResult<&str, ParsedToken> {
+fn operator(input: &str) -> IResult<&str, ParsedToken<'_>> {
     alt(parse_token!(
         op: "==" => OpEqualTo,
         op: "=" => OpEqual,
@@ -187,10 +184,11 @@ fn operator(input: &str) -> IResult<&str, ParsedToken> {
         op: ">=" => OpGreaterEqual,
         op: ">" => OpGreaterThan,
         op: "&&" => OpAnd,
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
-fn token(input: &str) -> IResult<&str, ParsedToken> {
+fn token(input: &str) -> IResult<&str, ParsedToken<'_>> {
     let (input, _) = many0(space1).parse(input)?;
 
     let compiler_directives = parse_token!(regex: r"^`(celldefine|default_nettype|define|else|elsif|endcelldefine|endif|ifdef|ifndef|include|line|nounconnected_drive|resetall|timescale|unconnected_drive|undef).*"
@@ -213,9 +211,10 @@ fn token(input: &str) -> IResult<&str, ParsedToken> {
         operator,
         compiler_directives,
         directives,
-    )).parse(input)
+    ))
+    .parse(input)
 }
 
-pub fn tokens(input: &str) -> IResult<&str, Vec<ParsedToken>> {
+pub fn tokens(input: &str) -> IResult<&str, Vec<ParsedToken<'_>>> {
     many1(token).parse(input)
 }

@@ -1,4 +1,4 @@
-use clap::{crate_authors, crate_version, Arg, Command};
+use clap::{Arg, Command, crate_authors, crate_version};
 use std::fs::read_to_string;
 
 pub mod lexer;
@@ -18,7 +18,7 @@ fn main() {
                 .value_name("file")
                 .help("Input file")
                 .required(true)
-                .num_args(1)
+                .num_args(1),
         )
         .get_matches();
 
